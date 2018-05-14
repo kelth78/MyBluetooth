@@ -1,0 +1,15 @@
+<resources>
+    <string name="app_name">MyBluetooth</string>
+    <string name="ble_not_supported">BLE not available on this device</string>
+    <string name="ble_start_scanning">Scanning for BLE devices</string>
+    <string name="ble_stop_scanning">Scanning for BLE devices stopped</string>
+    <string name="ble_unknown_device">Unknown device</string>
+    <string name="ble_unknown_service">Unknown service</string>
+    <string name="ble_no_permission">You do not give permission to access device location</string>
+    <string name="ble_connected">connected</string>
+    <string name="ble_disconnected">disconnected</string>
+    <string name="btn_text_scan">scan</string>
+    <string name="btn_text_stop">stop</string>
+    <string name="btn_text_connect">connect</string>
+    <string name="btn_text_disconnect">disconnect</string>
+</resources>
