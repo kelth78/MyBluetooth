@@ -8,8 +8,11 @@
     <string name="ble_no_permission">You do not give permission to access device location</string>
     <string name="ble_connected">connected</string>
     <string name="ble_disconnected">disconnected</string>
+    <string name="ble_connecting">connecting</string>
+    <string name="ble_disconnecting">disconnecting</string>
     <string name="btn_text_scan">scan</string>
     <string name="btn_text_stop">stop</string>
     <string name="btn_text_connect">connect</string>
     <string name="btn_text_disconnect">disconnect</string>
+
 </resources>

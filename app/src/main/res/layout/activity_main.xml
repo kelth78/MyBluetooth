@@ -17,15 +17,13 @@
         android:textOn="@string/btn_text_stop"
         app:layout_constraintStart_toStartOf="parent" />
 
-    <ToggleButton
-        android:id="@+id/button_connection"
+    <Button
+        android:id="@+id/button_disconnect"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_marginStart="8dp"
-        android:textOff="@string/btn_text_connect"
-        android:textOn="@string/btn_text_disconnect"
-        app:layout_constraintBaseline_toBaselineOf="@+id/button_scan"
-        app:layout_constraintStart_toEndOf="@+id/button_scan" />
+        android:enabled="false"
+        android:text="@string/btn_text_disconnect"
+        app:layout_constraintLeft_toRightOf="@+id/button_scan" />
 
     <ListView
         android:id="@+id/listView_ble_devices"
@@ -45,4 +43,13 @@
         app:layout_constraintHeight_percent="0.4"
         app:layout_constraintLeft_toLeftOf="@+id/button_scan"
         app:layout_constraintTop_toBottomOf="@+id/listView_ble_devices" />
+
+    <TextView
+        android:id="@+id/textView_status"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="@string/ble_disconnected"
+        app:layout_constraintBaseline_toBaselineOf="@+id/button_disconnect"
+        app:layout_constraintLeft_toRightOf="@+id/button_disconnect" />
+
 </android.support.constraint.ConstraintLayout>

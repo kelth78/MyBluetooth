@@ -4,7 +4,6 @@ import android.Manifest;
 import android.app.Activity;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
-import android.bluetooth.BluetoothGatt;
 import android.bluetooth.BluetoothGattCharacteristic;
 import android.bluetooth.BluetoothGattService;
 import android.content.BroadcastReceiver;
@@ -12,6 +11,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.pm.PackageManager;
+import android.os.AsyncTask;
 import android.os.Build;
 import android.os.Bundle;
 import android.util.Log;
@@ -35,26 +35,33 @@ import static com.kelth.mybluetooth.BluetoothLeService.ACTION_GATT_CONNECTED;
 import static com.kelth.mybluetooth.BluetoothLeService.ACTION_GATT_DISCONNECTED;
 import static com.kelth.mybluetooth.BluetoothLeService.ACTION_GATT_SERVICES_DISCOVERED;
 
-public class MainActivity extends Activity implements BluetoothLeService.BluetoothLeListener {
+public class MainActivity extends Activity implements BluetoothLeService.BluetoothLeListener,
+        View.OnClickListener, AdapterView.OnItemClickListener {
 
     private static final String TAG = MainActivity.class.getSimpleName();
     private static final int REQUEST_ENABLE_BT = 1; // Request code must be > 0
     private static final int REQUEST_PERMISSION_ACCESS_COARSE_LOC = 2;
 
-    private LeDeviceListAdapter mLeDeviceListAdapter;
-    private LeSvcCharListAdapter mLeSvcCharListAdapter;
+    private static final int ASYNC_TASK_BLE_SCAN = 1;
+    private static final int ASYNC_TASK_BLE_CONNECT = 2;
+    private static final int ASYNC_TASK_BLE_DISCONNECT = 3;
+
+    private BLEDeviceListAdapter mBLEDeviceListAdapter;
+    private BLEServiceCharacteristicListAdapter mBLEServiceCharacteristicListAdapter;
     private BluetoothLeService mBluetoothLeService;
     private BluetoothDevice mBluetoothDevice;
     private BluetoothGattCharacteristic mNotifyCharacteristic;
 
+    private ToggleButton mToggleButtonScan;
+    private Button mButtonDisconnect;
+    private TextView mTextViewStatus;
+    private ListView mListViewBLEDevices;
+    private ListView mListViewBLEServices;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
-
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
-
-        mLeDeviceListAdapter = new LeDeviceListAdapter();
-        mLeSvcCharListAdapter = new LeSvcCharListAdapter();
 
         // Use this check to determine whether BLE is supported on the device. Then
         // you can selectively disable BLE-related features.
@@ -63,80 +70,44 @@ public class MainActivity extends Activity implements BluetoothLeService.Bluetoo
             finish();
         }
 
-        // Android M and above requires user to manually grant it
+        // Android M and above requires runtime permission
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
             requestPermissions(new String[] {Manifest.permission.ACCESS_COARSE_LOCATION}, REQUEST_PERMISSION_ACCESS_COARSE_LOC);
         }
 
-        // Set adapter for ble devices list view
-        ListView lv = findViewById(R.id.listView_ble_devices);
-        lv.setAdapter(mLeDeviceListAdapter);
+        mToggleButtonScan    = findViewById(R.id.button_scan);
+        mButtonDisconnect    = findViewById(R.id.button_disconnect);
+        mTextViewStatus      = findViewById(R.id.textView_status);
+        mListViewBLEDevices  = findViewById(R.id.listView_ble_devices);
+        mListViewBLEServices = findViewById(R.id.listView_ble_services);
 
-        ListView lv2 = findViewById(R.id.listView_ble_services);
-        lv2.setAdapter(mLeSvcCharListAdapter);
+        mBLEDeviceListAdapter = new BLEDeviceListAdapter();
+        mBLEServiceCharacteristicListAdapter = new BLEServiceCharacteristicListAdapter();
+        mBluetoothLeService = new BluetoothLeService();
+
+        // Set adapter
+        mListViewBLEDevices.setAdapter(mBLEDeviceListAdapter);
+        mListViewBLEServices.setAdapter(mBLEServiceCharacteristicListAdapter);
+
+        // click event
+        mToggleButtonScan.setOnClickListener(this);
+        mButtonDisconnect.setOnClickListener(this);
+        mListViewBLEDevices.setOnItemClickListener(this);
+        mListViewBLEServices.setOnItemClickListener(this);
 
         // Ensures Bluetooth is available on the device and it is enabled. If not,
         // displays a dialog requesting user permission to enable Bluetooth.
-        mBluetoothLeService = new BluetoothLeService();
         mBluetoothLeService.init(getApplicationContext(), this);
         if (!mBluetoothLeService.isBluetoothAdapterAvailable()) {
             Intent enableBtIntent = new Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE);
             startActivityForResult(enableBtIntent, REQUEST_ENABLE_BT);
         }
-
-        // Scan Button click event
-        ToggleButton btnScan = findViewById(R.id.button_scan);
-        btnScan.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View view) {
-                mBluetoothLeService.scanLeDevice(((ToggleButton)view).isChecked());
-            }
-        });
-
-        // Connection Button click event
-        Button btnConn = findViewById(R.id.button_connection);
-        btnConn.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View view) {
-                if (((ToggleButton)view).isChecked()) {
-                    if (mBluetoothDevice != null) {
-                        mBluetoothLeService.connectGatt(mBluetoothDevice);
-                    }
-                    else {
-                        Toast.makeText(getApplicationContext(),
-                                getString(R.string.ble_unknown_device),
-                                Toast.LENGTH_LONG).show();
-                        ((ToggleButton) view).setChecked(false); // Restore
-                    }
-                }
-                else {
-                    mBluetoothLeService.disconnectGatt();
-                }
-            }
-        });
-
-        // ListView Device click event
-        lv.setOnItemClickListener(new AdapterView.OnItemClickListener() {
-            @Override
-            public void onItemClick(AdapterView<?> adapterView, View view, int position, long id) {
-                mBluetoothDevice = (BluetoothDevice)mLeDeviceListAdapter.getItem(position);
-                mBluetoothLeService.connectGatt(mBluetoothDevice);
-            }
-        });
-
-        // ListView Device's service-characteristic click event
-        lv2.setOnItemClickListener(new AdapterView.OnItemClickListener() {
-            @Override
-            public void onItemClick(AdapterView<?> adapterView, View view, int position, long id) {
-                ServiceCharacteristics svcChar = (ServiceCharacteristics)mLeSvcCharListAdapter.getItem(position);
-                mBluetoothLeService.readGattCharactertistics(svcChar.btGattCharacteristic);
-            }
-        });
     }
 
     @Override
     protected void onResume() {
         super.onResume();
+        // TODO Clear content
         registerReceiver(mGattUpdateReceiver, new IntentFilter(ACTION_GATT_CONNECTED));
         registerReceiver(mGattUpdateReceiver, new IntentFilter(ACTION_GATT_DISCONNECTED));
         registerReceiver(mGattUpdateReceiver, new IntentFilter(ACTION_GATT_SERVICES_DISCOVERED));
@@ -146,6 +117,7 @@ public class MainActivity extends Activity implements BluetoothLeService.Bluetoo
     @Override
     protected void onPause() {
         super.onPause();
+        // TODO If it's scanning, stop it
         unregisterReceiver(mGattUpdateReceiver);
     }
 
@@ -156,23 +128,107 @@ public class MainActivity extends Activity implements BluetoothLeService.Bluetoo
         mBluetoothLeService.release();
     }
 
+    /**
+     * Toggle button click
+     */
+    @Override
+    public void onClick(View view) {
+        switch (view.getId()) {
+            case R.id.button_scan:
+                new asyncTask().execute(ASYNC_TASK_BLE_SCAN);
+                break;
+            case R.id.button_disconnect:
+                new asyncTask().execute(ASYNC_TASK_BLE_DISCONNECT);
+                break;
+            default:
+                break;
+        }
+    }
+
+    /**
+     * ListView click
+     */
+    @Override
+    public void onItemClick(AdapterView<?> adapterView, View view, int position, long id) {
+        switch (adapterView.getId()) {
+            case R.id.listView_ble_devices:
+                mBluetoothDevice = (BluetoothDevice) mBLEDeviceListAdapter.getItem(position);
+                if (mBluetoothDevice != null) {
+                    new asyncTask().execute(ASYNC_TASK_BLE_CONNECT);
+                }
+                break;
+            case R.id.listView_ble_services:
+                ServiceCharacteristics svcChar = (ServiceCharacteristics) mBLEServiceCharacteristicListAdapter.getItem(position);
+                mBluetoothLeService.readGattCharactertistics(svcChar.btGattCharacteristic);
+                break;
+            default:
+                break;
+        }
+    }
+
+    /**
+     * AsyncTask
+     */
+    private class asyncTask extends AsyncTask<Integer, Void/*progress*/, Void/*result*/> {
+        @Override
+        protected Void doInBackground(Integer... integers) {
+            switch(integers[0]) {
+                case ASYNC_TASK_BLE_SCAN:
+                    runOnUiThread(new Runnable() {
+                        @Override
+                        public void run() {
+                            mTextViewStatus.setText(getResources().getString(R.string.ble_start_scanning));
+                        }
+                    });
+                    mBluetoothLeService.scanLeDevice(mToggleButtonScan.isChecked());
+                    break;
+                case ASYNC_TASK_BLE_CONNECT:
+                    runOnUiThread(new Runnable() {
+                        @Override
+                        public void run() {
+                            mTextViewStatus.setText(getResources().getString(R.string.ble_connecting));
+                        }
+                    });
+                    mBluetoothLeService.connectGatt(mBluetoothDevice);
+                    break;
+                case ASYNC_TASK_BLE_DISCONNECT:
+                    runOnUiThread(new Runnable() {
+                        @Override
+                        public void run() {
+                            mTextViewStatus.setText(getResources().getString(R.string.ble_disconnecting));
+                        }
+                    });
+                    mBluetoothLeService.disconnectGatt();
+                    break;
+            }
+            return null;
+        }
+    }
+
+    /**
+     * Permission request result callback
+     */
     @Override
     public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
         if (requestCode == REQUEST_PERMISSION_ACCESS_COARSE_LOC) {
             if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                //doLocationAccessRelatedJob();
+                // OK.
             } else {
-                // User refused to grant permission. You can add AlertDialog here
+                // User refused to grant permission. BLE scan will not return any results
                 Toast.makeText(this, getString(R.string.ble_no_permission), Toast.LENGTH_LONG).show();
+                finish();
             }
         }
     }
 
+    /**
+     * BLE
+     */
     @Override
     public void onBLEScanningStart() {
-        mLeDeviceListAdapter.clear();
-        mLeSvcCharListAdapter.clear();
+        mBLEDeviceListAdapter.clear();
+        mBLEServiceCharacteristicListAdapter.clear();
     }
 
     @Override
@@ -180,21 +236,16 @@ public class MainActivity extends Activity implements BluetoothLeService.Bluetoo
         runOnUiThread(new Runnable() {
             @Override
             public void run() {
-                ToggleButton btn = findViewById(R.id.button_scan);
-                btn.setChecked(false);
+                mToggleButtonScan.setChecked(false);
+                mTextViewStatus.setText(getResources().getString(R.string.ble_stop_scanning));
             }
         });
     }
 
     @Override
     public void onBLEScanResult(final BluetoothDevice btDevice) {
-        runOnUiThread(new Runnable() {
-            @Override
-            public void run() {
-                mLeDeviceListAdapter.addDevice(btDevice);
-                mLeDeviceListAdapter.notifyDataSetChanged();
-            }
-        });
+        mBLEDeviceListAdapter.addDevice(btDevice);
+        mBLEDeviceListAdapter.notifyDataSetChanged();
     }
 
 
@@ -215,11 +266,11 @@ public class MainActivity extends Activity implements BluetoothLeService.Bluetoo
                 runOnUiThread(new Runnable() {
                     @Override
                     public void run() {
-                        ((ToggleButton)findViewById(R.id.button_connection)).setChecked(true);
+                        mButtonDisconnect.setEnabled(true);
+                        mTextViewStatus.setText(getResources().getString(R.string.ble_connected));
                     }
                 });
-
-                // Device connected. Discover services available
+                // Discover services available
                 mBluetoothLeService.discoverGattServices();
             }
             else if (ACTION_GATT_DISCONNECTED.equals(action)) {
@@ -227,11 +278,12 @@ public class MainActivity extends Activity implements BluetoothLeService.Bluetoo
                 runOnUiThread(new Runnable() {
                     @Override
                     public void run() {
-                        ((ToggleButton)findViewById(R.id.button_connection)).setChecked(false);
-                        mLeSvcCharListAdapter.clear();
-                        mLeSvcCharListAdapter.notifyDataSetChanged();
+                        mButtonDisconnect.setEnabled(false);
+                        mTextViewStatus.setText(getResources().getString(R.string.ble_disconnected));
                     }
                 });
+                mBLEServiceCharacteristicListAdapter.clear();
+                mBLEServiceCharacteristicListAdapter.notifyDataSetChanged();
             }
             else if (BluetoothLeService.ACTION_GATT_SERVICES_DISCOVERED.equals(action)) {
                 Log.d(TAG, "ACTION_GATT_SERVICES_DISCOVERED");
@@ -260,7 +312,7 @@ public class MainActivity extends Activity implements BluetoothLeService.Bluetoo
                                 svcChar.btGattCharacteristic = gattCharacteristic;
                                 svcChar.serviceUUID = uuidToFriendlyServiceName(serviceUUID);
                                 svcChar.characteristicUUID = uuidToFriendlyCharacteristicName(gattCharacteristic.getUuid().toString());
-                                mLeSvcCharListAdapter.addSvc(svcChar);
+                                mBLEServiceCharacteristicListAdapter.addSvc(svcChar);
 
                                 // Get characteristics properties
                                 int properties = gattCharacteristic.getProperties();
@@ -278,7 +330,7 @@ public class MainActivity extends Activity implements BluetoothLeService.Bluetoo
                                     mBluetoothLeService.setCharacteristicNotification(mNotifyCharacteristic, true);
                                 }
                             }
-                            mLeSvcCharListAdapter.notifyDataSetChanged();
+                            mBLEServiceCharacteristicListAdapter.notifyDataSetChanged();
                         }
                     }
                 });
@@ -338,12 +390,12 @@ public class MainActivity extends Activity implements BluetoothLeService.Bluetoo
     /**
      * Adapter for holding services and characteristic of selected device
      */
-    private class LeSvcCharListAdapter extends BaseAdapter {
+    private class BLEServiceCharacteristicListAdapter extends BaseAdapter {
 
         private ArrayList<ServiceCharacteristics> mSvcChars;
         private LayoutInflater mInflator;
 
-        public LeSvcCharListAdapter() {
+        public BLEServiceCharacteristicListAdapter() {
             super();
             mSvcChars = new ArrayList<ServiceCharacteristics>();
             mInflator = MainActivity.this.getLayoutInflater();
@@ -407,11 +459,11 @@ public class MainActivity extends Activity implements BluetoothLeService.Bluetoo
     /**
      * Adapter for holding devices found through scanning.
      */
-    private class LeDeviceListAdapter extends BaseAdapter {
+    private class BLEDeviceListAdapter extends BaseAdapter {
         private ArrayList<BluetoothDevice> mLeDevices;
         private LayoutInflater mInflator;
 
-        public LeDeviceListAdapter() {
+        public BLEDeviceListAdapter() {
             super();
             mLeDevices = new ArrayList<BluetoothDevice>();
             mInflator = /*DeviceScanActivity*/MainActivity.this.getLayoutInflater();
