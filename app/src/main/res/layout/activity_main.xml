@@ -27,22 +27,28 @@
 
     <ListView
         android:id="@+id/listView_ble_devices"
-        android:layout_width="wrap_content"
+        android:layout_width="0dp"
         android:layout_height="0dp"
+        android:scrollbars="vertical"
         app:layout_constraintHeight_default="percent"
         app:layout_constraintHeight_percent="0.4"
         app:layout_constraintLeft_toLeftOf="@+id/button_scan"
-        app:layout_constraintTop_toBottomOf="@+id/button_scan" />
+        app:layout_constraintTop_toBottomOf="@+id/button_scan"
+        app:layout_constraintWidth_default="percent"
+        app:layout_constraintWidth_percent="0.9" />
 
     <ListView
         android:id="@+id/listView_ble_services"
-        android:layout_width="wrap_content"
+        android:layout_width="0dp"
         android:layout_height="0dp"
+        android:scrollbars="vertical"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintHeight_default="percent"
         app:layout_constraintHeight_percent="0.4"
         app:layout_constraintLeft_toLeftOf="@+id/button_scan"
-        app:layout_constraintTop_toBottomOf="@+id/listView_ble_devices" />
+        app:layout_constraintTop_toBottomOf="@+id/listView_ble_devices"
+        app:layout_constraintWidth_default="percent"
+        app:layout_constraintWidth_percent="0.9" />
 
     <TextView
         android:id="@+id/textView_status"
